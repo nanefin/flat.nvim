@@ -19,7 +19,7 @@ local function setup_hl_groups()
 	vim.api.nvim_set_hl(0, "FlatName", { link = "Identifier", default = true })
 	vim.api.nvim_set_hl(0, "FlatValue", { link = "String", default = true })
 
-	vim.api.nvim_set_hl(0, "FlatDecoration", { link = "Operator", default = true })
+	vim.api.nvim_set_hl(0, "FlatDecoration", { link = "Special", bold = true, default = true })
 	vim.api.nvim_set_hl(0, "FlatRef", { link = "Function", default = true })
 
 	vim.api.nvim_set_hl(0, "FlatDelimiter", { link = "Delimiter", default = true })
