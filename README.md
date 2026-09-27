@@ -2,7 +2,7 @@
 
 A lightweight, high-speed structured plain-text editor integration for Neovim.
 
-`flat.nvim` turns plain text files into structured data effortlessly without leaving your editor. Designed for quick note-taking, task tracking, walkthroughs, and dev logs, it offers structured referencing, linting, formatting, and export capabilities.
+`flat.nvim` turns plain text files into structured data effortlessly without leaving your editor. Designed for quick note-taking, task tracking, walkthroughs, and dev logs, it offers structured referencing, linting, formatting, and navigation capabilities.
 
 ---
 
@@ -12,8 +12,8 @@ A lightweight, high-speed structured plain-text editor integration for Neovim.
 - **Syntax Highlighting**: Theme-aware highlighting using Neovim Extmarks.
 - **Smart Completion**: Auto-completion for sections, constants, and enums via `nvim-cmp` or `omnifunc`.
 - **Diagnostics & Linter**: Real-time syntax checking, duplicate identifier validation, and memory-safe reference checking.
+- **Code Navigation**: Jump to definitions, search references across files, and rename symbols globally.
 - **Auto Formatting**: Native formatting support (built-in integration with `conform.nvim`).
-- **Data Export**: Convert `.flt` documents to JSON or SQL directly within Neovim.
 
 ---
 
@@ -77,12 +77,15 @@ Prefix special tokens (`#`, `;`, `\`) with a backslash (`\`) to escape them.
 
 ---
 
-## ⚡ Commands
+## 🧭 Navigation Keymaps
 
-| Command       | Description                                                             |
-| ------------- | ----------------------------------------------------------------------- |
-| `:FlatToJSON` | Converts the current `.flt` buffer to JSON and opens it in a new buffer |
-| `:FlatToSQL`  | Converts the current `.flt` buffer to SQL and opens it in a new buffer  |
+`flat.nvim` provides LSP-like navigation features out of the box for `.flt` files.
+
+| Keymap       | Action           | Description                                                           |
+| ------------ | ---------------- | --------------------------------------------------------------------- |
+| `gd`         | Go to Definition | Jump to declaration in the current buffer or imported files           |
+| `gr`         | Find References  | Find all symbol occurrences across files via Quickfix list            |
+| `<leader>rn` | Rename Symbol    | Safely rename declarations and reference usages across imported files |
 
 ---
 

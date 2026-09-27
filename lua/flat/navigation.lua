@@ -157,7 +157,7 @@ function M.find_references()
 	end
 end
 
---- 3. <leader>rn: Symbol Rename
+--- 3. <leader>rn: Symbol Rename (Supports Multi-file via Imports)
 function M.rename()
 	local target_name, _ = get_identifier_under_cursor()
 	if not target_name or target_name == "" then
@@ -171,26 +171,80 @@ function M.rename()
 
 	local current_buf = vim.api.nvim_get_current_buf()
 	local lines = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
-	local updated_lines = {}
-	local count = 0
+	local buf_name = vim.api.nvim_buf_get_name(current_buf)
+	local base_path = buf_name ~= "" and vim.fs.dirname(buf_name) or nil
 
-	for _, line in ipairs(lines) do
-		local new_line = line
-		-- Replace directive declarations and inline references
-		new_line = new_line:gsub("#!sec:" .. target_name .. "(%s*)$", "#!sec:" .. new_name .. "%1")
-		new_line = new_line:gsub("#!const:" .. target_name .. "(%s*:)", "#!const:" .. new_name .. "%1")
-		new_line = new_line:gsub("#!enum:" .. target_name .. "(%s*%{)", "#!enum:" .. new_name .. "%1")
-		new_line = new_line:gsub("#%$" .. target_name .. "([;:])", "#$" .. new_name .. "%1")
-
-		if new_line ~= line then
-			count = count + 1
-		end
-		table.insert(updated_lines, new_line)
+	-- 1. Get all target files (Current buffer + Imported files)
+	local target_files = {}
+	if buf_name ~= "" then
+		target_files[buf_name] = true
 	end
 
-	vim.api.nvim_buf_set_lines(current_buf, 0, -1, false, updated_lines)
+	local ast = parser.parse(lines, base_path)
+	for _, import_path in ipairs(ast.imports or {}) do
+		if vim.fn.filereadable(import_path) == 1 then
+			target_files[import_path] = true
+		end
+	end
+
+	-- 2. Process replacement for a given set of lines
+	local function process_lines(file_lines)
+		local updated_lines = {}
+		local changed = false
+		local count = 0
+
+		for _, line in ipairs(file_lines) do
+			local new_line = line
+			new_line = new_line:gsub("#!sec:" .. target_name .. "(%s*)$", "#!sec:" .. new_name .. "%1")
+			new_line = new_line:gsub("#!const:" .. target_name .. "(%s*:)", "#!const:" .. new_name .. "%1")
+			new_line = new_line:gsub("#!enum:" .. target_name .. "(%s*%{)", "#!enum:" .. new_name .. "%1")
+			new_line = new_line:gsub("#%$" .. target_name .. "([;:])", "#$" .. new_name .. "%1")
+
+			if new_line ~= line then
+				changed = true
+				count = count + 1
+			end
+			table.insert(updated_lines, new_line)
+		end
+
+		return updated_lines, changed, count
+	end
+
+	-- 3. Execute replacement across all identified files
+	local total_occurrences = 0
+	local total_files = 0
+
+	for filepath, _ in pairs(target_files) do
+		-- Handle active buffer
+		if filepath == buf_name then
+			local updated, changed, count = process_lines(lines)
+			if changed then
+				vim.api.nvim_buf_set_lines(current_buf, 0, -1, false, updated)
+				total_occurrences = total_occurrences + count
+				total_files = total_files + 1
+			end
+		else
+			-- Handle external imported files
+			local imp_lines = vim.fn.readfile(filepath)
+			local updated, changed, count = process_lines(imp_lines)
+			if changed then
+				vim.fn.writefile(updated, filepath)
+				total_occurrences = total_occurrences + count
+				total_files = total_files + 1
+
+				-- Reload buffer if the external file happens to be open in another window/tab
+				local external_buf = vim.fn.bufnr(filepath)
+				if external_buf ~= -1 and vim.api.nvim_buf_is_loaded(external_buf) then
+					vim.api.nvim_buf_call(external_buf, function()
+						vim.cmd("edit!")
+					end)
+				end
+			end
+		end
+	end
+
 	vim.notify(
-		"Renamed " .. count .. " occurrence(s) of '" .. target_name .. "' to '" .. new_name .. "'",
+		"Renamed " .. total_occurrences .. " occurrence(s) across " .. total_files .. " file(s)",
 		vim.log.levels.INFO
 	)
 end
