@@ -1,14 +1,18 @@
 #!import: ./common.flt
 
-## Global Configuration & Constants
-#!const:BaseUrl:https://example.com/api
+## Section: Overview
+#!sec:Dungeon
+Overview of dungeon mechanics and map references (System Version: #$ProjectVersion;).
+
 #!const:DungeonUrl:#$BaseUrl;/dungeon/1
 
+## Map & Route Guide
 #*Route;
 Proceed from the entrance to the right passage. Collect #*Treasure; (Mana Potion).
 
 #!empty
 
+## Monster List
 #*Monsters;
 ・Red Dragon #$element:Fire; ➔ #*Strategy; Attack with Ice attribute.
 ・Blue Slime #$element:Water; ➔ Leave it alone.
@@ -18,12 +22,12 @@ Proceed from the entrance to the right passage. Collect #*Treasure; (Mana Potion
 #*Tactics;
 ・Phase 1: #*Caution; Evade charge attack to the right.
 ・Phase 2: Area-of-effect attack below 50% HP. #*Required; Heal every turn.
-*For details, see #$Dungeon;.
+*For details, see Dungeon section.
 
-Reference to #$BossBattle;.
+Reference to BossBattle.
 
 #!sec:TestSection
 
-Reference to #$TestSection; and constant #$BaseUrl;.
+Reference to TestSection and API endpoint: #$DungeonUrl;.
 
 ## This is a comment line.

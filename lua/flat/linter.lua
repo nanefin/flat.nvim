@@ -2,13 +2,14 @@ local M = {}
 local diagnostic_ns = vim.api.nvim_create_namespace("flat_linter")
 
 local function trim(s)
-	return s and (s:match("^%s*(.-)%s*$") or s) or ""
+	return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
 function M.attach(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
 	local parser = require("flat.parser")
 
-	local function check_inline_refs(line, idx, start_pos, scope_consts, scope_sections, scope_enums, diagnostics)
+	local function check_inline_refs(line, idx, start_pos, scope_consts, scope_enums, diagnostics)
 		local line_len = #line
 		local search_pos = start_pos or 1
 
@@ -73,8 +74,7 @@ function M.attach(bufnr)
 						source = "flat-linter",
 					})
 				elseif not content:find(":") then
-					-- Check against scope up to the current line
-					if not scope_sections[content] and not scope_consts[content] then
+					if not scope_consts[content] then
 						table.insert(diagnostics, {
 							lnum = idx,
 							col = start_col,
@@ -128,24 +128,18 @@ function M.attach(bufnr)
 		local ast = parser.parse(lines, base_path)
 		local diagnostics = {}
 
-		-- Scope trackers for strict top-down evaluation
 		local scope_consts = {}
-		local scope_sections = {}
 		local scope_enums = {}
 
-		-- Populate scope from imported files first
 		for _, import_path in ipairs(ast.imports or {}) do
 			if vim.fn.filereadable(import_path) == 1 then
 				local imp_lines = vim.fn.readfile(import_path)
 				local imp_ast = parser.parse(imp_lines, vim.fs.dirname(import_path))
-				for k, v in pairs(imp_ast.consts) do
+				for k, v in pairs(imp_ast.consts or {}) do
 					scope_consts[k] = v
 				end
-				for k, v in pairs(imp_ast.enums) do
+				for k, v in pairs(imp_ast.enums or {}) do
 					scope_enums[k] = v
-				end
-				for _, v in ipairs(imp_ast.sections) do
-					scope_sections[v] = true
 				end
 			end
 		end
@@ -157,7 +151,7 @@ function M.attach(bufnr)
 			if trimmed:sub(1, 2) ~= "##" and trimmed ~= "" then
 				if trimmed:find("^#!sec:") then
 					local name = trim(trimmed:sub(7))
-					if ast.duplicates[name] then
+					if ast.duplicates and ast.duplicates[name] then
 						table.insert(diagnostics, {
 							lnum = idx,
 							col = 0,
@@ -168,15 +162,12 @@ function M.attach(bufnr)
 							source = "flat-linter",
 						})
 					end
-					if name ~= "" then
-						scope_sections[name] = true
-					end
 				elseif trimmed:find("^#!const:") then
 					local body = trimmed:sub(9)
 					local name, val = body:match("^([%w_]+)%s*:%s*(.*)$")
 					if name then
 						name = trim(name)
-						if ast.duplicates[name] then
+						if ast.duplicates and ast.duplicates[name] then
 							table.insert(diagnostics, {
 								lnum = idx,
 								col = 0,
@@ -187,7 +178,7 @@ function M.attach(bufnr)
 								source = "flat-linter",
 							})
 						end
-						if ast.invalid_const_lengths[name] then
+						if ast.invalid_const_lengths and ast.invalid_const_lengths[name] then
 							table.insert(diagnostics, {
 								lnum = idx,
 								col = 0,
@@ -203,18 +194,9 @@ function M.attach(bufnr)
 						end
 					end
 
-					-- Check inline references in const value BEFORE adding it to scope
 					local colon_pos = line:find(":", 9)
 					if colon_pos then
-						check_inline_refs(
-							line,
-							idx,
-							colon_pos + 1,
-							scope_consts,
-							scope_sections,
-							scope_enums,
-							diagnostics
-						)
+						check_inline_refs(line, idx, colon_pos + 1, scope_consts, scope_enums, diagnostics)
 					end
 
 					if name and name ~= "" then
@@ -222,9 +204,9 @@ function M.attach(bufnr)
 					end
 				elseif trimmed:find("^#!enum:") then
 					local rest = trimmed:sub(8)
-					local name = trim(rest:match("^([%w_]+)"))
-					if name then
-						if ast.duplicates[name] then
+					local name = trim(rest:match("^([%w_]+)") or "")
+					if name ~= "" then
+						if ast.duplicates and ast.duplicates[name] then
 							table.insert(diagnostics, {
 								lnum = idx,
 								col = 0,
@@ -235,7 +217,7 @@ function M.attach(bufnr)
 								source = "flat-linter",
 							})
 						end
-						scope_enums[name] = ast.enums[name] or {}
+						scope_enums[name] = (ast.enums and ast.enums[name]) or {}
 					end
 
 					if rest:find("[%(\\)]") then
@@ -260,7 +242,7 @@ function M.attach(bufnr)
 						})
 					end
 				else
-					check_inline_refs(line, idx, 1, scope_consts, scope_sections, scope_enums, diagnostics)
+					check_inline_refs(line, idx, 1, scope_consts, scope_enums, diagnostics)
 				end
 			end
 		end

@@ -112,19 +112,6 @@ function M.attach(bufnr)
 			end
 
 			if typed == "#" or typed:sub(1, 2) == "#$" or typed:sub(1, 2) == "#!" then
-				for _, sec in ipairs(ast.sections or {}) do
-					local full_label = "#$" .. sec
-					if typed == "#" or full_label:find("^" .. vim.pesc(typed)) then
-						local prefix = (typed == "#" and "$ " or (typed == "#$" and " " or ""))
-						table.insert(items, {
-							label = full_label,
-							insertText = prefix .. sec .. ";",
-							kind = cmp.lsp.CompletionItemKind.Folder,
-							detail = "[Section Ref]",
-						})
-					end
-				end
-
 				for key, val in pairs(ast.consts or {}) do
 					local full_label = "#$" .. key
 					if typed == "#" or full_label:find("^" .. vim.pesc(typed)) then
@@ -193,12 +180,6 @@ function M.omni(findstart, base)
 		local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 		local ast = parser.parse(lines)
 		local items, search_base = {}, base or ""
-
-		for _, sec in ipairs(ast.sections or {}) do
-			if sec:find("^" .. vim.pesc(search_base)) then
-				table.insert(items, { word = "$" .. sec .. ";", abbr = "#$" .. sec, menu = "[Section Ref]" })
-			end
-		end
 
 		for key, val in pairs(ast.consts or {}) do
 			if key:find("^" .. vim.pesc(search_base)) then

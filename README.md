@@ -66,12 +66,9 @@ Flat syntax is simple and line-oriented.
 
 Inline references are enclosed between the reference token and a terminating semicolon `;`.
 
-- **Section Reference**: `#$SectionName;`
 - **Constant Reference**: `#$ConstName;` (e.g., `#$Domain;/api`)
 - **Enum Value Reference**: `#$EnumName:Value;` (e.g., `#$Status:Done;`)
-- **Inline Decoration**: `#*Highlight Text;`
-
-### Escape Character
+- **Inline Decoration**: `#*Highlight Text;`### Escape Character
 
 Prefix special tokens (`#`, `;`, `\`) with a backslash (`\`) to escape them.
 

@@ -18,7 +18,10 @@ local function setup_hl_groups()
 	vim.api.nvim_set_hl(0, "FlatKeyword", { link = "PreProc", bold = true, default = true })
 	vim.api.nvim_set_hl(0, "FlatName", { link = "Identifier", default = true })
 	vim.api.nvim_set_hl(0, "FlatValue", { link = "String", default = true })
-	vim.api.nvim_set_hl(0, "FlatInline", { link = "Special", default = true })
+
+	vim.api.nvim_set_hl(0, "FlatDecoration", { link = "Operator", default = true })
+	vim.api.nvim_set_hl(0, "FlatRef", { link = "Function", default = true })
+
 	vim.api.nvim_set_hl(0, "FlatDelimiter", { link = "Delimiter", default = true })
 	vim.api.nvim_set_hl(0, "FlatComment", { link = "Comment", default = true })
 	vim.api.nvim_set_hl(0, "FlatEscape", { link = "SpecialChar", default = true })
@@ -54,9 +57,11 @@ local function highlight_inlines(bufnr, line, line_idx, start_pos)
 				end
 
 				if semi then
+					local inline_hl = (c2 == "#*") and "FlatDecoration" or "FlatRef"
+
 					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
 						end_col = semi - 1,
-						hl_group = "FlatInline",
+						hl_group = inline_hl,
 						priority = 220,
 					})
 					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, semi - 1, {
@@ -140,7 +145,6 @@ function M.attach(bufnr)
 							hl_group = "FlatValue",
 							priority = 150,
 						})
-						-- Enable inline reference highlight inside constant values
 						highlight_inlines(bufnr, line, line_idx, 8 + colon_pos + 1)
 					end
 				else
