@@ -1,47 +1,60 @@
 local M = {}
-local ns_id = vim.api.nvim_create_namespace("flat_lines")
 
-local function update_decorations(bufnr)
-    bufnr = bufnr or vim.api.nvim_get_current_buf()
-    if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "flat" then
-        return
-    end
+M.opts = {
+	highlight = true,
+	linter = true,
+	completion = true,
+}
 
-    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    local sec_lines = {}
+function M.setup(user_opts)
+	M.opts = vim.tbl_deep_extend("force", M.opts, user_opts or {})
 
-    for i, line in ipairs(lines) do
-        if line:find("^#!sec") then
-            table.insert(sec_lines, i - 1)
-        end
-    end
+	local has_conform, conform = pcall(require, "conform")
+	if has_conform then
+		conform.formatters.flat_formatter = {
+			format = function(_, _, lines, callback)
+				local formatted = require("flat.formatter").format_lines(lines)
+				callback(nil, formatted)
+			end,
+		}
+	end
 
-    vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
+	local group = vim.api.nvim_create_augroup("FlatNvim", { clear = true })
 
-    for _, line_idx in ipairs(sec_lines) do
-        -- 行全体の背景色を設定
-        -- テーマに合わせて以下のいずれかのグループ名を試してみてください:
-        -- "DiffAdd"    : ほどよく目立つ背景（おすすめ）
-        -- "DiffChange" : 落ち着いた強調背景
-        -- "Visual"     : 選択領域のような背景
-        -- "PmenuSel"   : アクティブな選択背景
-        vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
-            line_hl_group = "DiffAdd",
-        })
-    end
-end
+	vim.api.nvim_create_autocmd("FileType", {
+		group = group,
+		pattern = "flat",
+		callback = function(ev)
+			local bufnr = ev.buf
+			vim.bo[bufnr].commentstring = "## %s"
+			if M.opts.highlight then
+				require("flat.highlight").attach(bufnr)
+			end
+			if M.opts.linter then
+				require("flat.linter").attach(bufnr)
+			end
+			if M.opts.completion then
+				require("flat.completion").attach(bufnr)
+			end
+		end,
+	})
 
-function M.setup_decorations()
-    local bufnr = vim.api.nvim_get_current_buf()
+	local function create_export_command(cmd_name, target_ft, parse_fn_name)
+		vim.api.nvim_create_user_command(cmd_name, function()
+			local parser = require("flat.parser")
+			local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+			local ast = parser.parse(lines)
+			local result = parser[parse_fn_name](ast)
 
-    vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "TextChangedI" }, {
-        buffer = bufnr,
-        callback = function()
-            update_decorations(bufnr)
-        end,
-    })
+			local buf = vim.api.nvim_create_buf(true, true)
+			vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(result, "\n"))
+			vim.api.nvim_set_option_value("filetype", target_ft, { buf = buf })
+			vim.api.nvim_win_set_buf(0, buf)
+		end, {})
+	end
 
-    update_decorations(bufnr)
+	create_export_command("FlatToJSON", "json", "to_json")
+	create_export_command("FlatToSQL", "sql", "to_sql")
 end
 
 return M

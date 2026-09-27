@@ -1,0 +1,26 @@
+#!import: ./common.flt
+
+#*Route;
+Proceed from the entrance to the right passage. Collect #*Treasure; (Mana Potion).
+
+#!empty
+
+#*Monsters;
+・Red Dragon #$element:Fire; ➔ #*Strategy; Attack with Ice attribute.
+・Blue Slime #$element:Water; ➔ Leave it alone.
+
+#!sec:BossBattle
+
+#*Tactics;
+・Phase 1: #*Caution; Evade charge attack to the right.
+・Phase 2: Area-of-effect attack below 50% HP. #*Required; Heal every turn.
+*For details, see #$Dungeon;.
+
+Reference to #$BossBattle;.
+
+#!sec:TestSection
+
+Reference to #$TestSection;.
+
+## This is a comment line.
+
