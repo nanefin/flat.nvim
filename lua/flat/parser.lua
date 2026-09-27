@@ -6,16 +6,7 @@ local function trim(s)
 	return s and (s:match("^%s*(.-)%s*$") or s) or ""
 end
 
-local function expand_consts(val, consts)
-	if not val:find("#%$") then
-		return val
-	end
-	return val:gsub("#%$(%w+);", function(name)
-		return consts[name] or ("#$" .. name .. ";")
-	end)
-end
-
---- Parse lines into AST
+--- Parse lines into AST (Strict Top-Down 1-pass execution: O(N))
 ---@param lines string[]
 ---@param base_path string|nil Base directory for relative imports
 ---@param visited table<string, boolean>|nil Cache to prevent circular imports
@@ -45,7 +36,7 @@ function M.parse(lines, base_path, visited)
 	for _, line in ipairs(lines) do
 		local clean = trim(line)
 
-		-- 0. Parse Import directive (#!import: path.flt)
+		-- 0. Parse Import directive
 		if clean:sub(1, 9) == "#!import:" then
 			local rel_path = trim(clean:sub(10))
 			if rel_path ~= "" and base_path then
@@ -83,7 +74,7 @@ function M.parse(lines, base_path, visited)
 				end
 			end
 
-		-- 1. Parse Section directive (#!sec:Name)
+		-- 1. Parse Section directive
 		elseif clean:sub(1, 6) == "#!sec:" then
 			local title_key = trim(clean:sub(7))
 			if title_key ~= "" then
@@ -92,24 +83,29 @@ function M.parse(lines, base_path, visited)
 				check_duplicate(title_key)
 			end
 
-		-- 2. Parse Const directive (#!const:Name:Value)
+		-- 2. Parse Const directive (Evaluates ONLY previously defined consts without recursion)
 		elseif clean:sub(1, 8) == "#!const:" then
 			local body = clean:sub(9)
 			local name, val = body:match("^([%w_]+)%s*:%s*(.*)$")
 			if name and val then
 				name = trim(name)
 				val = trim(val)
-				local expanded = expand_consts(val, ast.consts)
+				check_duplicate(name)
+
+				-- Single pass string replacement against ALREADY DEFINED constants
+				local expanded = val:gsub("#%$(%w+);", function(ref_name)
+					return ast.consts[ref_name] or ("#$" .. ref_name .. ";")
+				end)
+
 				if #expanded > MAX_CONST_LENGTH then
 					ast.invalid_const_lengths[name] = true
 					ast.consts[name] = val
 				else
 					ast.consts[name] = expanded
 				end
-				check_duplicate(name)
 			end
 
-		-- 3. Parse Enum definition (#!enum:Name{Val1, Val2})
+		-- 3. Parse Enum definition
 		elseif clean:sub(1, 7) == "#!enum:" then
 			local body = clean:sub(8)
 			if not body:find("[%(\\)]") then

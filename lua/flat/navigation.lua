@@ -10,20 +10,7 @@ local function get_identifier_under_cursor()
 	local line = vim.api.nvim_get_current_line()
 	local col = vim.api.nvim_win_get_cursor(0)[2] + 1
 
-	-- 1. Declaration directive check (#!sec:Name, #!const:Name, #!enum:Name)
-	if line:sub(1, 6) == "#!sec:" then
-		return trim(line:sub(7)), "sec"
-	elseif line:sub(1, 8) == "#!const:" then
-		local body = line:sub(9)
-		local name = body:match("^([%w_]+)")
-		return name, "const"
-	elseif line:sub(1, 7) == "#!enum:" then
-		local body = line:sub(8)
-		local name = body:match("^([%w_]+)")
-		return name, "enum"
-	end
-
-	-- 2. Inline reference check (#$Ref; or #$Enum:Value;)
+	-- 1. Check Inline Reference FIRST (#$Ref; or #$Enum:Value;)
 	local search_pos = 1
 	while search_pos <= #line do
 		local s_idx = line:find("#%$", search_pos)
@@ -44,6 +31,24 @@ local function get_identifier_under_cursor()
 		search_pos = s_idx + 2
 	end
 
+	if line:sub(1, 6) == "#!sec:" then
+		return trim(line:sub(7)), "sec"
+	elseif line:sub(1, 8) == "#!const:" then
+		local colon_pos = line:find(":", 9)
+		if not colon_pos or col <= colon_pos then
+			local body = line:sub(9)
+			local name = body:match("^([%w_]+)")
+			return name, "const"
+		end
+	elseif line:sub(1, 7) == "#!enum:" then
+		local bracket_pos = line:find("{", 8)
+		if not bracket_pos or col <= bracket_pos then
+			local body = line:sub(8)
+			local name = body:match("^([%w_]+)")
+			return name, "enum"
+		end
+	end
+
 	-- 3. Fallback to standard word under cursor
 	return vim.fn.expand("<cword>"), "general"
 end
@@ -60,10 +65,8 @@ function M.goto_definition()
 	local buf_name = vim.api.nvim_buf_get_name(current_buf)
 	local base_path = buf_name ~= "" and vim.fs.dirname(buf_name) or nil
 
-	-- Safely escape pattern characters in target name
 	local safe_name = vim.pesc(target_name)
 
-	-- Patterns for declaration lookup (No string.format used)
 	local patterns = {
 		"^#!sec:%s*" .. safe_name .. "%s*$",
 		"^#!const:%s*" .. safe_name .. "%s*:",
@@ -137,10 +140,8 @@ function M.find_references()
 		end
 	end
 
-	-- Search in active buffer
 	search_in_file(buf_name ~= "" and buf_name or "[Current Buffer]", lines)
 
-	-- Search in imported files
 	local ast = parser.parse(lines, base_path)
 	for _, import_path in ipairs(ast.imports or {}) do
 		if vim.fn.filereadable(import_path) == 1 then
@@ -174,7 +175,6 @@ function M.rename()
 	local buf_name = vim.api.nvim_buf_get_name(current_buf)
 	local base_path = buf_name ~= "" and vim.fs.dirname(buf_name) or nil
 
-	-- 1. Get all target files (Current buffer + Imported files)
 	local target_files = {}
 	if buf_name ~= "" then
 		target_files[buf_name] = true
@@ -187,7 +187,6 @@ function M.rename()
 		end
 	end
 
-	-- 2. Process replacement for a given set of lines
 	local function process_lines(file_lines)
 		local updated_lines = {}
 		local changed = false
@@ -210,12 +209,10 @@ function M.rename()
 		return updated_lines, changed, count
 	end
 
-	-- 3. Execute replacement across all identified files
 	local total_occurrences = 0
 	local total_files = 0
 
 	for filepath, _ in pairs(target_files) do
-		-- Handle active buffer
 		if filepath == buf_name then
 			local updated, changed, count = process_lines(lines)
 			if changed then
@@ -224,7 +221,6 @@ function M.rename()
 				total_files = total_files + 1
 			end
 		else
-			-- Handle external imported files
 			local imp_lines = vim.fn.readfile(filepath)
 			local updated, changed, count = process_lines(imp_lines)
 			if changed then
@@ -232,7 +228,6 @@ function M.rename()
 				total_occurrences = total_occurrences + count
 				total_files = total_files + 1
 
-				-- Reload buffer if the external file happens to be open in another window/tab
 				local external_buf = vim.fn.bufnr(filepath)
 				if external_buf ~= -1 and vim.api.nvim_buf_is_loaded(external_buf) then
 					vim.api.nvim_buf_call(external_buf, function()

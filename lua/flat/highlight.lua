@@ -24,6 +24,57 @@ local function setup_hl_groups()
 	vim.api.nvim_set_hl(0, "FlatEscape", { link = "SpecialChar", default = true })
 end
 
+local function highlight_inlines(bufnr, line, line_idx, start_pos)
+	local len = #line
+	local pos = start_pos or 1
+	while pos <= len do
+		local char = line:sub(pos, pos)
+		if char == "\\" and pos < len then
+			vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
+				end_col = pos + 1,
+				hl_group = "FlatEscape",
+				priority = 250,
+			})
+			pos = pos + 2
+		else
+			local c2 = line:sub(pos, pos + 1)
+			if (c2 == "#*" or c2 == "#$") and (pos == 1 or line:sub(pos - 1, pos - 1) ~= "\\") then
+				local semi = nil
+				local search_pos = pos + 2
+				while search_pos <= len do
+					local s_char = line:sub(search_pos, search_pos)
+					if s_char == "\\" then
+						search_pos = search_pos + 2
+					elseif s_char == ";" then
+						semi = search_pos
+						break
+					else
+						search_pos = search_pos + 1
+					end
+				end
+
+				if semi then
+					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
+						end_col = semi - 1,
+						hl_group = "FlatInline",
+						priority = 220,
+					})
+					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, semi - 1, {
+						end_col = semi,
+						hl_group = "FlatDelimiter",
+						priority = 220,
+					})
+					pos = semi + 1
+				else
+					pos = pos + 1
+				end
+			else
+				pos = pos + 1
+			end
+		end
+	end
+end
+
 function M.attach(bufnr)
 	setup_hl_groups()
 
@@ -87,8 +138,10 @@ function M.attach(bufnr)
 						vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8 + colon_pos, {
 							end_col = #line,
 							hl_group = "FlatValue",
-							priority = 200,
+							priority = 150,
 						})
+						-- Enable inline reference highlight inside constant values
+						highlight_inlines(bufnr, line, line_idx, 8 + colon_pos + 1)
 					end
 				else
 					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8, {
@@ -148,54 +201,7 @@ function M.attach(bufnr)
 					priority = 200,
 				})
 			else
-				local len = #line
-				local pos = 1
-				while pos <= len do
-					local char = line:sub(pos, pos)
-					if char == "\\" and pos < len then
-						vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
-							end_col = pos + 1,
-							hl_group = "FlatEscape",
-							priority = 250,
-						})
-						pos = pos + 2
-					else
-						local c2 = line:sub(pos, pos + 1)
-						if (c2 == "#*" or c2 == "#$") and (pos == 1 or line:sub(pos - 1, pos - 1) ~= "\\") then
-							local semi = nil
-							local search_pos = pos + 2
-							while search_pos <= len do
-								local s_char = line:sub(search_pos, search_pos)
-								if s_char == "\\" then
-									search_pos = search_pos + 2
-								elseif s_char == ";" then
-									semi = search_pos
-									break
-								else
-									search_pos = search_pos + 1
-								end
-							end
-
-							if semi then
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
-									end_col = semi - 1,
-									hl_group = "FlatInline",
-									priority = 200,
-								})
-								vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, semi - 1, {
-									end_col = semi,
-									hl_group = "FlatDelimiter",
-									priority = 200,
-								})
-								pos = semi + 1
-							else
-								pos = pos + 1
-							end
-						else
-							pos = pos + 1
-						end
-					end
-				end
+				highlight_inlines(bufnr, line, line_idx, 1)
 			end
 		end
 	end

@@ -21,9 +21,23 @@ function M.attach(bufnr)
 
 		Source.complete = function(_, params, callback)
 			local line_before = params.context.cursor_line:sub(1, params.context.cursor.col)
-			local s = line_before:find("#[^;]*$")
 
-			if not s or (s > 1 and line_before:sub(s - 1, s - 1) == "\\") then
+			local s = nil
+			local search_pos = 1
+			while true do
+				local found = line_before:find("#", search_pos)
+				if not found then
+					break
+				end
+				if found == 1 or line_before:sub(found - 1, found - 1) ~= "\\" then
+					if not line_before:sub(found):find(";") then
+						s = found
+					end
+				end
+				search_pos = found + 1
+			end
+
+			if not s then
 				callback({ items = {}, incomplete = false })
 				return
 			end
@@ -154,9 +168,23 @@ function M.omni(findstart, base)
 		local line = vim.api.nvim_get_current_line()
 		local col = vim.api.nvim_win_get_cursor(0)[2]
 		local line_before = line:sub(1, col)
-		local s = line_before:find("#[^;]*$")
 
-		if s and not (s > 1 and line_before:sub(s - 1, s - 1) == "\\") then
+		local s = nil
+		local search_pos = 1
+		while true do
+			local found = line_before:find("#", search_pos)
+			if not found then
+				break
+			end
+			if found == 1 or line_before:sub(found - 1, found - 1) ~= "\\" then
+				if not line_before:sub(found):find(";") then
+					s = found
+				end
+			end
+			search_pos = found + 1
+		end
+
+		if s then
 			return s + 1
 		end
 		return -1
