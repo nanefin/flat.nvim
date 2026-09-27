@@ -100,3 +100,12 @@ require("flat").setup({
   completion = true,  -- Enable nvim-cmp / omnifunc completion
 })
 ```
+
+---
+
+## 🚀 Roadmap
+
+- [x] High-performance Lua parser & syntax highlighting
+- [x] Diagnostics, Completion & Code Navigation (`gd`, `gr`, `<leader>rn`)
+- [ ] Native data conversion support (e.g., Lua table / JSON export)
+- [ ] Tree-sitter parser implementation
