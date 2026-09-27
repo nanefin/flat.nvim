@@ -8,6 +8,7 @@ function M.format_lines(lines)
 	for _, line in ipairs(lines) do
 		local formatted = line:gsub("%s+$", "")
 		formatted = formatted:gsub("^(#!sec:)%s+(.*)$", "%1%2")
+		formatted = formatted:gsub("^(#!const:)%s*(.-)%s*:%s*(.*)$", "%1%2:%3")
 		formatted = formatted:gsub("^(#!enum:)%s+(.*)$", "%1%2")
 		table.insert(new_lines, formatted)
 	end

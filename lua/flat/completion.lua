@@ -59,6 +59,12 @@ function M.attach(bufnr)
 					kind = cmp.lsp.CompletionItemKind.Keyword,
 				},
 				{
+					label = "#!const:",
+					insertText = "!const:",
+					detail = "[Constant Definition]",
+					kind = cmp.lsp.CompletionItemKind.Keyword,
+				},
+				{
 					label = "#!enum:",
 					insertText = "!enum:",
 					detail = "[Enum Definition]",
@@ -101,6 +107,19 @@ function M.attach(bufnr)
 							insertText = prefix .. sec .. ";",
 							kind = cmp.lsp.CompletionItemKind.Folder,
 							detail = "[Section Ref]",
+						})
+					end
+				end
+
+				for key, val in pairs(ast.consts or {}) do
+					local full_label = "#$" .. key
+					if typed == "#" or full_label:find("^" .. vim.pesc(typed)) then
+						local prefix = (typed == "#" and "$" or "")
+						table.insert(items, {
+							label = full_label,
+							insertText = prefix .. key .. ";",
+							kind = cmp.lsp.CompletionItemKind.Constant,
+							detail = "[Const Ref: " .. val .. "]",
 						})
 					end
 				end
@@ -150,6 +169,15 @@ function M.omni(findstart, base)
 		for _, sec in ipairs(ast.sections or {}) do
 			if sec:find("^" .. vim.pesc(search_base)) then
 				table.insert(items, { word = "$" .. sec .. ";", abbr = "#$" .. sec, menu = "[Section Ref]" })
+			end
+		end
+
+		for key, val in pairs(ast.consts or {}) do
+			if key:find("^" .. vim.pesc(search_base)) then
+				table.insert(
+					items,
+					{ word = "$" .. key .. ";", abbr = "#$" .. key, menu = "[Const Ref: " .. val .. "]" }
+				)
 			end
 		end
 

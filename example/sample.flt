@@ -1,5 +1,9 @@
 #!import: ./common.flt
 
+## Global Configuration & Constants
+#!const:BaseUrl:https://example.com/api
+#!const:DungeonUrl:#$BaseUrl;/dungeon/1
+
 #*Route;
 Proceed from the entrance to the right passage. Collect #*Treasure; (Mana Potion).
 
@@ -20,7 +24,6 @@ Reference to #$BossBattle;.
 
 #!sec:TestSection
 
-Reference to #$TestSection;.
+Reference to #$TestSection; and constant #$BaseUrl;.
 
 ## This is a comment line.
-

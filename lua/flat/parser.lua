@@ -1,22 +1,46 @@
 local M = {}
 
+local MAX_CONST_LENGTH = 10000
+
 local function trim(s)
 	return s and (s:match("^%s*(.-)%s*$") or s) or ""
+end
+
+local function expand_consts(val, consts)
+	if not val:find("#%$") then
+		return val
+	end
+	return val:gsub("#%$(%w+);", function(name)
+		return consts[name] or ("#$" .. name .. ";")
+	end)
 end
 
 --- Parse lines into AST
 ---@param lines string[]
 ---@param base_path string|nil Base directory for relative imports
 ---@param visited table<string, boolean>|nil Cache to prevent circular imports
----@return table AST containing enums, sections, and imports
+---@return table AST containing enums, sections, consts, duplicates, and imports
 function M.parse(lines, base_path, visited)
 	visited = visited or {}
 	local ast = {
 		enums = {},
 		sections = {},
 		section_set = {},
+		consts = {},
+		duplicates = {},
+		invalid_const_lengths = {},
 		imports = {},
 	}
+
+	local known_identifiers = {}
+
+	local function check_duplicate(name)
+		if known_identifiers[name] then
+			ast.duplicates[name] = true
+		else
+			known_identifiers[name] = true
+		end
+	end
 
 	for _, line in ipairs(lines) do
 		local clean = trim(line)
@@ -38,6 +62,14 @@ function M.parse(lines, base_path, visited)
 					for k, v in pairs(imported_ast.enums) do
 						if not ast.enums[k] then
 							ast.enums[k] = v
+							check_duplicate(k)
+						end
+					end
+
+					for k, v in pairs(imported_ast.consts) do
+						if not ast.consts[k] then
+							ast.consts[k] = v
+							check_duplicate(k)
 						end
 					end
 
@@ -45,6 +77,7 @@ function M.parse(lines, base_path, visited)
 						if not ast.section_set[sec] then
 							table.insert(ast.sections, sec)
 							ast.section_set[sec] = true
+							check_duplicate(sec)
 						end
 					end
 				end
@@ -56,9 +89,27 @@ function M.parse(lines, base_path, visited)
 			if title_key ~= "" then
 				table.insert(ast.sections, title_key)
 				ast.section_set[title_key] = true
+				check_duplicate(title_key)
 			end
 
-		-- 2. Parse Enum definition (#!enum:Name{Val1, Val2})
+		-- 2. Parse Const directive (#!const:Name:Value)
+		elseif clean:sub(1, 8) == "#!const:" then
+			local body = clean:sub(9)
+			local name, val = body:match("^([%w_]+)%s*:%s*(.*)$")
+			if name and val then
+				name = trim(name)
+				val = trim(val)
+				local expanded = expand_consts(val, ast.consts)
+				if #expanded > MAX_CONST_LENGTH then
+					ast.invalid_const_lengths[name] = true
+					ast.consts[name] = val
+				else
+					ast.consts[name] = expanded
+				end
+				check_duplicate(name)
+			end
+
+		-- 3. Parse Enum definition (#!enum:Name{Val1, Val2})
 		elseif clean:sub(1, 7) == "#!enum:" then
 			local body = clean:sub(8)
 			if not body:find("[%(\\)]") then
@@ -70,6 +121,7 @@ function M.parse(lines, base_path, visited)
 						table.insert(vals, trim(val))
 					end
 					ast.enums[name] = vals
+					check_duplicate(name)
 				end
 			end
 		end

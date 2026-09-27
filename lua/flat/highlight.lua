@@ -17,6 +17,7 @@ local function setup_hl_groups()
 
 	vim.api.nvim_set_hl(0, "FlatKeyword", { link = "PreProc", bold = true, default = true })
 	vim.api.nvim_set_hl(0, "FlatName", { link = "Identifier", default = true })
+	vim.api.nvim_set_hl(0, "FlatValue", { link = "String", default = true })
 	vim.api.nvim_set_hl(0, "FlatInline", { link = "Special", default = true })
 	vim.api.nvim_set_hl(0, "FlatDelimiter", { link = "Delimiter", default = true })
 	vim.api.nvim_set_hl(0, "FlatComment", { link = "Comment", default = true })
@@ -60,6 +61,39 @@ function M.attach(bufnr)
 					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 6, {
 						end_col = #line,
 						hl_group = "FlatSecTitle",
+						priority = 200,
+					})
+				end
+			elseif line:sub(1, 8) == "#!const:" then
+				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+					end_col = 8,
+					hl_group = "FlatKeyword",
+					priority = 200,
+				})
+				local rest = line:sub(9)
+				local colon_pos = rest:find(":")
+				if colon_pos then
+					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8, {
+						end_col = 8 + colon_pos - 1,
+						hl_group = "FlatName",
+						priority = 200,
+					})
+					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8 + colon_pos - 1, {
+						end_col = 8 + colon_pos,
+						hl_group = "FlatDelimiter",
+						priority = 200,
+					})
+					if #rest > colon_pos then
+						vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8 + colon_pos, {
+							end_col = #line,
+							hl_group = "FlatValue",
+							priority = 200,
+						})
+					end
+				else
+					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 8, {
+						end_col = #line,
+						hl_group = "FlatName",
 						priority = 200,
 					})
 				end

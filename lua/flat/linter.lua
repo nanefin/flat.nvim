@@ -24,8 +24,65 @@ function M.attach(bufnr)
 			local trimmed = trim(line)
 
 			if trimmed:sub(1, 2) ~= "##" and trimmed ~= "" then
-				if trimmed:find("^#!enum:") then
+				-- Check Duplicate Identifiers
+				if trimmed:find("^#!sec:") then
+					local name = trim(trimmed:sub(7))
+					if ast.duplicates[name] then
+						table.insert(diagnostics, {
+							lnum = idx,
+							col = 0,
+							end_lnum = idx,
+							end_col = #line,
+							severity = vim.diagnostic.severity.ERROR,
+							message = string.format("Duplicate identifier '%s'", name),
+							source = "flat-linter",
+						})
+					end
+				elseif trimmed:find("^#!const:") then
+					local body = trimmed:sub(9)
+					local name = trim(body:match("^([%w_]+)"))
+					if name then
+						if ast.duplicates[name] then
+							table.insert(diagnostics, {
+								lnum = idx,
+								col = 0,
+								end_lnum = idx,
+								end_col = #line,
+								severity = vim.diagnostic.severity.ERROR,
+								message = string.format("Duplicate identifier '%s'", name),
+								source = "flat-linter",
+							})
+						end
+						if ast.invalid_const_lengths[name] then
+							table.insert(diagnostics, {
+								lnum = idx,
+								col = 0,
+								end_lnum = idx,
+								end_col = #line,
+								severity = vim.diagnostic.severity.ERROR,
+								message = string.format(
+									"Constant value '%s' exceeds maximum length limit (10000 chars)",
+									name
+								),
+								source = "flat-linter",
+							})
+						end
+					end
+				elseif trimmed:find("^#!enum:") then
 					local rest = trimmed:sub(8)
+					local name = trim(rest:match("^([%w_]+)"))
+					if name and ast.duplicates[name] then
+						table.insert(diagnostics, {
+							lnum = idx,
+							col = 0,
+							end_lnum = idx,
+							end_col = #line,
+							severity = vim.diagnostic.severity.ERROR,
+							message = string.format("Duplicate identifier '%s'", name),
+							source = "flat-linter",
+						})
+					end
+
 					if rest:find("[%(\\)]") then
 						table.insert(diagnostics, {
 							lnum = idx,
@@ -112,14 +169,14 @@ function M.attach(bufnr)
 									source = "flat-linter",
 								})
 							elseif not content:find(":") then
-								if not ast.section_set[content] then
+								if not ast.section_set[content] and not ast.consts[content] then
 									table.insert(diagnostics, {
 										lnum = idx,
 										col = start_col,
 										end_lnum = idx,
 										end_col = end_col,
 										severity = vim.diagnostic.severity.ERROR,
-										message = string.format("Undefined Section '%s'", content),
+										message = string.format("Undefined Reference '%s'", content),
 										source = "flat-linter",
 									})
 								end
