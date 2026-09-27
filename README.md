@@ -4,7 +4,7 @@ A lightweight, high-speed structured plain-text editor integration for Neovim.
 
 `flat.nvim` turns plain text files into structured data effortlessly without leaving your editor. Designed for quick note-taking, task tracking, walkthroughs, and dev logs, it offers structured referencing, linting, formatting, and navigation capabilities.
 
-<img width="777" height="553" alt="image" src="https://github.com/user-attachments/assets/45af44c9-1eca-4151-8598-d6b47895b3b2" />
+<img width="743" height="552" alt="image" src="https://github.com/user-attachments/assets/10e9dc02-6f30-4074-b4fc-f21dcc68b21c" />
 
 ---
 
