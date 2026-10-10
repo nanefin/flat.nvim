@@ -5,10 +5,10 @@
 #!import: ./common_base.flat
 
 #!section: イントロダクション
-> flat (v3) のインポート機能のテスト用ファイルです。
-> 共通ベースからインポートした要素を参照します。
-> 1. ベース情報の展開: #$base_info;
-> 2. ベースサーバーの展開: #$base_servers;
+flat (v3) のインポート機能のテスト用ファイルです。
+共通ベースからインポートした要素を参照します。
+ベース情報の展開: #$base_info;
+ベースサーバーの展開: #$base_servers;
 
 #!block: app_config
 env: production
