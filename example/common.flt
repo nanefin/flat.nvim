@@ -1,5 +1,0 @@
-## Global Definitions and Enums
-#!enum:element{Fire, Water, Lightning, Ice, Neutral}
-
-#!const:BaseUrl:https://example.com/api
-#!const:ProjectVersion:v1.2.0
