@@ -21,10 +21,8 @@ local function setup_hl_groups()
 	vim.api.nvim_set_hl(0, "FlatKeyword", { link = "PreProc", bold = true, default = true })
 	vim.api.nvim_set_hl(0, "FlatName", { link = "Identifier", default = true })
 	vim.api.nvim_set_hl(0, "FlatValue", { link = "String", default = true })
-
 	vim.api.nvim_set_hl(0, "FlatDecoration", { link = "Special", bold = true, default = true })
 	vim.api.nvim_set_hl(0, "FlatRef", { link = "Function", bold = true, default = true })
-
 	vim.api.nvim_set_hl(0, "FlatDelimiter", { link = "Delimiter", default = true })
 	vim.api.nvim_set_hl(0, "FlatComment", { link = "Comment", default = true })
 	vim.api.nvim_set_hl(0, "FlatEscape", { link = "SpecialChar", default = true })
@@ -36,8 +34,8 @@ local function highlight_inlines(bufnr, line, line_idx, start_pos)
 	while pos <= len do
 		local char = line:sub(pos, pos)
 		if char == "\\" and pos < len then
-			local end_c = math.min(len, pos + 1)
-			vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
+			local end_c = math.min(len, pos + 2)
+			pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, pos - 1, {
 				end_col = end_c,
 				hl_group = "FlatEscape",
 				priority = 250,
@@ -61,15 +59,14 @@ local function highlight_inlines(bufnr, line, line_idx, start_pos)
 				end
 
 				if semi then
-					local ref_end = math.min(len, semi - 1)
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, pos - 1, {
+					local ref_end = math.min(len, semi)
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, pos - 1, {
 						end_col = ref_end,
 						hl_group = "FlatRef",
 						priority = 220,
 					})
-					local delim_end = math.min(len, semi)
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, semi - 1, {
-						end_col = delim_end,
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, semi - 1, {
+						end_col = semi,
 						hl_group = "FlatDelimiter",
 						priority = 220,
 					})
@@ -104,73 +101,83 @@ function M.attach(bufnr)
 			local line_len = #line
 
 			if line:sub(1, 2) == "##" then
-				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = line_len,
 					hl_group = "FlatComment",
 					priority = 300,
 				})
 			elseif line:match("^#!section:") then
-				local prefix_len = math.min(line_len, 10)
+				local prefix_len = 10
 				if vim.fn.hlexists("FlatSecBg") == 1 then
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 						end_col = line_len,
 						line_hl_group = "FlatSecBg",
 						priority = 100,
 					})
 				end
-				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = prefix_len,
 					hl_group = "FlatSecPrefix",
 					priority = 200,
 				})
 				if line_len > prefix_len then
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, prefix_len, {
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, prefix_len, {
 						end_col = line_len,
 						hl_group = "FlatSecTitle",
 						priority = 200,
 					})
 				end
 			elseif line:match("^#!block:") then
-				local prefix_len = math.min(line_len, 9)
+				local prefix_len = 9
 				if vim.fn.hlexists("FlatBlockBg") == 1 then
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 						end_col = line_len,
 						line_hl_group = "FlatBlockBg",
 						priority = 100,
 					})
 				end
-				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = prefix_len,
 					hl_group = "FlatKeyword",
 					priority = 200,
 				})
 				if line_len > prefix_len then
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, prefix_len, {
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, prefix_len, {
 						end_col = line_len,
 						hl_group = "FlatBlockTitle",
 						priority = 200,
 					})
 				end
 			elseif line:sub(1, 9) == "#!import:" then
-				local prefix_len = math.min(line_len, 9)
-				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+				local prefix_len = 9
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = prefix_len,
 					hl_group = "FlatKeyword",
 					priority = 200,
 				})
 				if line_len > prefix_len then
-					vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, prefix_len, {
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, prefix_len, {
 						end_col = line_len,
 						hl_group = "FlatName",
 						priority = 200,
 					})
 				end
 			elseif line:sub(1, 2) == "#!" then
-				vim.api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = line_len,
 					hl_group = "FlatKeyword",
 					priority = 200,
 				})
+			elseif line:match("^%s*>[>]*") then
+				-- 行頭の >, >>, >>> などのインデント記号をハイライト
+				local _, end_pos = line:find("^%s*>[>]*")
+				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
+					end_col = end_pos,
+					hl_group = "FlatDecoration",
+					priority = 200,
+				})
+				-- インデント以降のインライン参照（#$など）もハイライト対象にする
+				highlight_inlines(bufnr, line, line_idx, end_pos + 1)
 			else
 				highlight_inlines(bufnr, line, line_idx, 1)
 			end
@@ -186,12 +193,20 @@ function M.attach(bufnr)
 end
 
 function M.setup()
-	vim.api.nvim_create_autocmd("FileType", {
-		pattern = "flat",
+	vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "BufReadPost" }, {
+		pattern = "*.flat",
 		callback = function(args)
-			M.attach(args.buf)
+			if vim.bo[args.buf].filetype == "flat" then
+				M.attach(args.buf)
+			end
 		end,
 	})
+
+	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].filetype == "flat" then
+			M.attach(bufnr)
+		end
+	end
 end
 
 return M

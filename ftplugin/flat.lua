@@ -1,3 +1,6 @@
+-- コメント文字列の設定 (gcc用)
+vim.bo.commentstring = "## %s"
+
 -- 定義ジャンプ
 vim.keymap.set("n", "gd", function()
 	require("flat.navigation").goto_definition()
