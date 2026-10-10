@@ -95,18 +95,20 @@ function M.attach(bufnr)
 		end
 
 		local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+		local current_kind = "section" -- デフォルトはセクション
 
 		for i, line in ipairs(lines) do
 			local line_idx = i - 1
 			local line_len = #line
 
-			if line:sub(1, 2) == "##" then
+			if line:match("^%s*##") then
 				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = line_len,
 					hl_group = "FlatComment",
 					priority = 300,
 				})
 			elseif line:match("^#!section:") then
+				current_kind = "section"
 				local prefix_len = 10
 				if vim.fn.hlexists("FlatSecBg") == 1 then
 					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
@@ -128,6 +130,7 @@ function M.attach(bufnr)
 					})
 				end
 			elseif line:match("^#!block:") then
+				current_kind = "block"
 				local prefix_len = 9
 				if vim.fn.hlexists("FlatBlockBg") == 1 then
 					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
@@ -149,6 +152,7 @@ function M.attach(bufnr)
 					})
 				end
 			elseif line:sub(1, 9) == "#!import:" then
+				current_kind = "import"
 				local prefix_len = 9
 				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = prefix_len,
@@ -163,23 +167,26 @@ function M.attach(bufnr)
 					})
 				end
 			elseif line:sub(1, 2) == "#!" then
+				current_kind = "other"
 				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
 					end_col = line_len,
 					hl_group = "FlatKeyword",
 					priority = 200,
 				})
-			elseif line:match("^%s*>[>]*") then
-				-- 行頭の >, >>, >>> などのインデント記号をハイライト
-				local _, end_pos = line:find("^%s*>[>]*")
-				pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
-					end_col = end_pos,
-					hl_group = "FlatDecoration",
-					priority = 200,
-				})
-				-- インデント以降のインライン参照（#$など）もハイライト対象にする
-				highlight_inlines(bufnr, line, line_idx, end_pos + 1)
 			else
-				highlight_inlines(bufnr, line, line_idx, 1)
+				-- `#!section` の中でのみ、行頭の `>` を装飾（FlatDecoration）としてハイライトする
+				-- `#!block` の中ではインデントとしての `>` は一切評価・ハイライトしない（純粋なデータ）
+				if current_kind == "section" and line:match("^%s*>[>]*") then
+					local _, end_pos = line:find("^%s*>[>]*")
+					pcall(vim.api.nvim_buf_set_extmark, bufnr, ns_id, line_idx, 0, {
+						end_col = end_pos,
+						hl_group = "FlatDecoration",
+						priority = 200,
+					})
+					highlight_inlines(bufnr, line, line_idx, end_pos + 1)
+				else
+					highlight_inlines(bufnr, line, line_idx, 1)
+				end
 			end
 		end
 	end
