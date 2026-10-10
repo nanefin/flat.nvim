@@ -1,0 +1,25 @@
+## ==========================================
+## sample.flat - メインサンプルファイル
+## ==========================================
+
+#!import: ./common_base.flat
+
+#!section: イントロダクション
+> flat (v3) のインポート機能のテスト用ファイルです。
+> 共通ベースからインポートした要素を参照します。
+> 1. ベース情報の展開: #$base_info;
+> 2. ベースサーバーの展開: #$base_servers;
+
+#!block: app_config
+env: production
+port: 8080
+target_host: #$base_servers.10.0.0.1 primary-bastion;
+
+#!section: デプロイメモ
+> 共通の踏み台サーバーを経由してデプロイを実行します。
+#$base_servers;
+
+
+#$base_serves;
+
+

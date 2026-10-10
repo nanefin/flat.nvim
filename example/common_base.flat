@@ -1,0 +1,11 @@
+## ==========================================
+## common_base.flat - 共通設定・ベース定義
+## ==========================================
+
+#!section: base_info
+> このファイルは common_base.flat です。
+> 共通の環境設定やベースデータを定義しています。
+
+#!block: base_servers
+10.0.0.1 primary-bastion
+10.0.0.2 secondary-bastion
