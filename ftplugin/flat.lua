@@ -11,6 +11,11 @@ vim.keymap.set("n", "<leader>lf", function()
 	require("flat.formatter").format()
 end, { buffer = true, silent = true, desc = "Flat: Format" })
 
+-- アクション実行
+vim.keymap.set("n", "<leader>fa", function()
+	require("flat.action").run_action()
+end, { buffer = true, silent = true, desc = "Flat: Run Action" })
+
 -- 診断のホバー表示・トグル (K)
 vim.keymap.set("n", "K", function()
 	vim.diagnostic.open_float({ border = "rounded", focus = false })
