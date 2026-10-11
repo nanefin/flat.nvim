@@ -16,6 +16,7 @@ flat (v3) のインポート・参照機能の動作を確認します。
 #$base_servers;
 
 #!block: app_config
+|copy
 env: production
 port: 8080
 target_host: #$base_servers;
