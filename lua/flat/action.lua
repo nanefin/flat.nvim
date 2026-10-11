@@ -32,7 +32,7 @@ local function exec_copy(target_sym, body_lines)
 	return true
 end
 
--- load(パス) アクション: 外部ファイルの内容を読み込み、現在の要素の本文を全消去して上書きする
+-- load(パス) アクション
 local function exec_load(bufnr, target_sym, body_start, body_end, path_str, current_file)
 	local target_path = resolve_path(current_file, path_str)
 	if vim.fn.filereadable(target_path) ~= 1 then
@@ -52,7 +52,7 @@ local function exec_load(bufnr, target_sym, body_start, body_end, path_str, curr
 	return true
 end
 
--- save(パス) アクション: 本文を外部ファイルへ書き出す（元の本文は保持される）
+-- save(パス) アクション
 local function exec_save(body_lines, path_str, current_file)
 	if #body_lines == 0 then
 		vim.notify("[Flat] 保存する本文が存在しません", vim.log.levels.WARN)
@@ -67,14 +67,13 @@ local function exec_save(body_lines, path_str, current_file)
 	return true
 end
 
--- save!(パス) アクション: 本文を外部ファイルへ書き出し、元の本文を #$パス; に置換する
+-- save!(パス) アクション
 local function exec_save_bang(bufnr, target_sym, body_start, body_end, body_lines, path_str, current_file)
 	if #body_lines == 0 then
 		vim.notify("[Flat] 保存する本文が存在しません", vim.log.levels.WARN)
 		return false
 	end
 
-	-- 安全装置: 本文がすでに #$パス; 1行のみの場合は二重実行とみなしてスキップ
 	local expected_ref = "#$" .. path_str .. ";"
 	if #body_lines == 1 and vim.trim(body_lines[1]) == expected_ref then
 		vim.notify(
@@ -87,12 +86,10 @@ local function exec_save_bang(bufnr, target_sym, body_start, body_end, body_line
 		return true
 	end
 
-	-- 外部ファイルへ書き出し
 	if not exec_save(body_lines, path_str, current_file) then
 		return false
 	end
 
-	-- 本文を #$パス; に置換
 	local new_lines = { expected_ref }
 	vim.api.nvim_buf_set_lines(bufnr, body_start - 1, body_end, false, new_lines)
 	vim.notify(
@@ -102,7 +99,7 @@ local function exec_save_bang(bufnr, target_sym, body_start, body_end, body_line
 	return true
 end
 
--- list (#!section 専用): 本セクションを除く、section, blockを "s: #$名;" または "b: #$名;" 形式で列挙する
+-- list アクション
 local function exec_list(bufnr, target_sym, body_start, body_end, current_file)
 	if target_sym.kind ~= "section" then
 		vim.notify("[Flat] list アクションは section でのみ使用できます", vim.log.levels.WARN)
@@ -114,7 +111,6 @@ local function exec_list(bufnr, target_sym, body_start, body_end, current_file)
 
 	local listed_lines = {}
 	for _, sym in ipairs(symbols) do
-		-- 自分自身以外のセクション・ブロックを抽出
 		if not (sym.file == current_file and sym.name == target_sym.name and sym.kind == target_sym.kind) then
 			local prefix = (sym.kind == "section") and "s" or "b"
 			table.insert(listed_lines, string.format("%s: #$%s;", prefix, sym.name))
@@ -129,6 +125,71 @@ local function exec_list(bufnr, target_sym, body_start, body_end, current_file)
 	return true
 end
 
+-- run アクション: 本文を一時ファイルに書き出し、デフォルトの方式で実行する
+local function exec_run(target_sym, body_lines, current_file)
+	if #body_lines == 0 then
+		vim.notify("[Flat] 実行するスクリプト（本文）が存在しません", vim.log.levels.WARN)
+		return false
+	end
+
+	local temp_file = vim.fn.tempname()
+	local ext = (vim.fn.has("win32") == 1) and ".bat" or ".sh"
+	local script_path = temp_file .. ext
+	vim.fn.writefile(body_lines, script_path)
+
+	-- 実行コマンドの構築 (2>&1 で標準エラーと標準出力を統合)
+	local cmd = {}
+	if vim.fn.has("win32") == 1 then
+		table.insert(cmd, "cmd.exe")
+		table.insert(cmd, "/c")
+		table.insert(cmd, string.format("%s 2>&1", script_path))
+	else
+		table.insert(cmd, vim.o.shell)
+		table.insert(cmd, string.format("%s 2>&1", script_path))
+	end
+
+	vim.cmd("tabnew")
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.bo[bufnr].buftype = "nofile"
+	vim.bo[bufnr].bufhidden = "wipe"
+	vim.bo[bufnr].swapfile = false
+
+	local title = string.format("[Flat Run] %s", target_sym.name)
+	local header = {
+		title,
+		string.rep("=", vim.fn.strdisplaywidth(title)),
+		string.format("$ %s", table.concat(cmd, " ")),
+		"",
+	}
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, header)
+	vim.notify(string.format("[Flat] '%s' の実行を開始しました", target_sym.name), vim.log.levels.INFO)
+
+	vim.system(cmd, {
+		text = true,
+		cwd = vim.fn.fnamemodify(current_file, ":h"),
+	}, function(obj)
+		pcall(vim.fn.delete, script_path)
+
+		vim.schedule(function()
+			if not vim.api.nvim_buf_is_valid(bufnr) then
+				return
+			end
+
+			local output_lines = {}
+			local raw_output = obj.stdout or ""
+			if raw_output ~= "" then
+				for _, l in ipairs(vim.split(raw_output, "\n", { plain = true })) do
+					table.insert(output_lines, l)
+				end
+			end
+
+			vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, output_lines)
+		end)
+	end)
+
+	return true
+end
+
 -- アクション行のパースとディスパッチ
 local function dispatch_action(bufnr, action_line, target_sym, body_start, body_end, body_lines, current_file)
 	local cmd_str = action_line:match("^%s*|%s*(.-)%s*$")
@@ -140,6 +201,8 @@ local function dispatch_action(bufnr, action_line, target_sym, body_start, body_
 		return exec_copy(target_sym, body_lines)
 	elseif cmd_str == "list" then
 		return exec_list(bufnr, target_sym, body_start, body_end, current_file)
+	elseif cmd_str == "run" then
+		return exec_run(target_sym, body_lines, current_file)
 	elseif vim.startswith(cmd_str, "load(") and vim.endswith(cmd_str, ")") then
 		local path_str = cmd_str:match("^load%((.-)%)$")
 		return exec_load(bufnr, target_sym, body_start, body_end, path_str, current_file)
@@ -158,17 +221,15 @@ local function dispatch_action(bufnr, action_line, target_sym, body_start, body_
 	end
 end
 
--- カーソル位置のアクションを実行するエントリーポイント
 function M.run_action()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local current_file = vim.api.nvim_buf_get_name(bufnr)
 	local cursor = vim.api.nvim_win_get_cursor(0)
-	local row = cursor[1] -- 1-indexed
+	local row = cursor[1]
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 	local symbols = parser.parse_pass1(bufnr, lines)
 
-	-- カーソルが属するシンボルを特定
 	local target_sym = nil
 	for _, sym in ipairs(symbols) do
 		if sym.file == current_file and row >= sym.start_line and row <= sym.end_line then
@@ -185,7 +246,6 @@ function M.run_action()
 		return
 	end
 
-	-- 定義行直下に連続する `|` アクション行を収集
 	local action_lines = {}
 	local scan_idx = target_sym.start_line + 1
 
@@ -204,7 +264,6 @@ function M.run_action()
 		return
 	end
 
-	-- 順次アクションを実行
 	for _, act_line in ipairs(action_lines) do
 		lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 		symbols = parser.parse_pass1(bufnr, lines)
