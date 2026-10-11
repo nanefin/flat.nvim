@@ -5,21 +5,28 @@
 #!import: ./common_base.flat
 
 #!section: イントロダクション
-flat (v3) のインポート機能のテスト用ファイルです。
-共通ベースからインポートした要素を参照します。
-ベース情報の展開: #$base_info;
-ベースサーバーの展開: #$base_servers;
+> テストの目的
+flat (v3) のインポート・参照機能の動作を確認します。
+
+> 要素の展開
+ベース情報の展開:
+#$base_info;
+
+ベースサーバーの展開:
+#$base_servers;
 
 #!block: app_config
 env: production
 port: 8080
-target_host: #$base_servers.10.0.0.1 primary-bastion;
+target_host: #$base_servers;
 
-#!section: デプロイメモ
-> 共通の踏み台サーバーを経由してデプロイを実行します。
+#!section: デプロイ手順
+> 実行手順
+共通の踏み台サーバーを経由してデプロイを実行します。
+
+> 検証
+参照先の確認:
 #$base_servers;
 
-
-#$base_serves;
-
-
+パス参照のテスト:
+#$./common_base.flat;

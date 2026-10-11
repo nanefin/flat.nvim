@@ -121,13 +121,13 @@ function M.goto_definition()
 		if vim.fn.filereadable(target_path) == 1 or vim.fn.isdirectory(target_path) == 1 then
 			vim.cmd("edit " .. vim.fn.fnameescape(target_path))
 		else
-			vim.notify("ファイルが存在しません: " .. target_path, vim.log.levels.WARN)
+			vim.notify("ファイルが存在しません: " + target_path, vim.log.levels.WARN)
 		end
 		return
 	end
 
 	-- 4. 通常のシンボル参照（自ファイル ＋ インポートファイルから一括検索）
-	local base_name = ref_name:match("^([^%.]+)") or ref_name
+	local base_name = ref_name -- block.line 廃止により ref_name 全体をシンボル名とする
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 	local all_symbols = {}
 

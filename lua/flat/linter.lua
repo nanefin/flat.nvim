@@ -49,7 +49,7 @@ function M.lint(bufnr)
 						if semi then
 							local ref_content = line:sub(pos + 2, semi - 1)
 							if not vim.startswith(ref_content, "./") then
-								local base_name = ref_content:match("^([^%.]+)") or ref_content
+								local base_name = ref_content -- block.line 廃止により ref_content 全体をシンボル名とする
 								if not symbol_map[base_name] then
 									table.insert(diagnostics, {
 										lnum = i - 1, -- 0-indexed
