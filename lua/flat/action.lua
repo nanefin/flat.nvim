@@ -46,7 +46,7 @@ local function exec_load(bufnr, target_sym, body_start, body_end, path_str, curr
 	local new_lines = vim.fn.readfile(target_path)
 	vim.api.nvim_buf_set_lines(bufnr, body_start - 1, body_end, false, new_lines)
 	vim.notify(
-		string.format("[Flat] '%s' の本文を '%s' から読み込みました", target_sym.name, path_str),
+		string.format("[Flat] '%s' の本文を '%s' から読みました", target_sym.name, path_str),
 		vim.log.levels.INFO
 	)
 	return true
@@ -102,6 +102,33 @@ local function exec_save_bang(bufnr, target_sym, body_start, body_end, body_line
 	return true
 end
 
+-- list (#!section 専用): 本セクションを除く、section, blockを "s: #$名;" または "b: #$名;" 形式で列挙する
+local function exec_list(bufnr, target_sym, body_start, body_end, current_file)
+	if target_sym.kind ~= "section" then
+		vim.notify("[Flat] list アクションは section でのみ使用できます", vim.log.levels.WARN)
+		return false
+	end
+
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local symbols = parser.parse_pass1(bufnr, lines, current_file)
+
+	local listed_lines = {}
+	for _, sym in ipairs(symbols) do
+		-- 自分自身以外のセクション・ブロックを抽出
+		if not (sym.file == current_file and sym.name == target_sym.name and sym.kind == target_sym.kind) then
+			local prefix = (sym.kind == "section") and "s" or "b"
+			table.insert(listed_lines, string.format("%s: #$%s;", prefix, sym.name))
+		end
+	end
+
+	vim.api.nvim_buf_set_lines(bufnr, body_start - 1, body_end, false, listed_lines)
+	vim.notify(
+		string.format("[Flat] '%s' の本文をシンボル参照一覧で更新しました", target_sym.name),
+		vim.log.levels.INFO
+	)
+	return true
+end
+
 -- アクション行のパースとディスパッチ
 local function dispatch_action(bufnr, action_line, target_sym, body_start, body_end, body_lines, current_file)
 	local cmd_str = action_line:match("^%s*|%s*(.-)%s*$")
@@ -111,6 +138,8 @@ local function dispatch_action(bufnr, action_line, target_sym, body_start, body_
 
 	if cmd_str == "copy" then
 		return exec_copy(target_sym, body_lines)
+	elseif cmd_str == "list" then
+		return exec_list(bufnr, target_sym, body_start, body_end, current_file)
 	elseif vim.startswith(cmd_str, "load(") and vim.endswith(cmd_str, ")") then
 		local path_str = cmd_str:match("^load%((.-)%)$")
 		return exec_load(bufnr, target_sym, body_start, body_end, path_str, current_file)
@@ -175,7 +204,7 @@ function M.run_action()
 		return
 	end
 
-	-- 順次アクションを実行（load や save! による行数変動に追従するため、毎回シンボル位置と本文を再取得する）
+	-- 順次アクションを実行
 	for _, act_line in ipairs(action_lines) do
 		lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 		symbols = parser.parse_pass1(bufnr, lines)
