@@ -125,45 +125,27 @@ local function exec_list(bufnr, target_sym, body_start, body_end, current_file)
 	return true
 end
 
--- run アクション: 本文を一時ファイルに書き出し、デフォルトの方式で実行する
-local function exec_run(target_sym, body_lines, current_file)
+-- 例: run(bash) や run(python) のように、指定されたコマンドで実行する
+local function exec_run(target_sym, body_lines, current_file, specified_cmd)
 	if #body_lines == 0 then
 		vim.notify("[Flat] 実行するスクリプト（本文）が存在しません", vim.log.levels.WARN)
 		return false
 	end
 
 	local temp_file = vim.fn.tempname()
-	local ext = (vim.fn.has("win32") == 1) and ".bat" or ".sh"
-	local script_path = temp_file .. ext
+	-- 拡張子は必要に応じてスクリプトの種類に合わせる、あるいは一律で .sh / .bat にする等
+	local script_path = temp_file .. ".sh"
 	vim.fn.writefile(body_lines, script_path)
 
-	-- 実行コマンドの構築 (2>&1 で標準エラーと標準出力を統合)
-	local cmd = {}
-	if vim.fn.has("win32") == 1 then
-		table.insert(cmd, "cmd.exe")
-		table.insert(cmd, "/c")
-		table.insert(cmd, string.format("%s 2>&1", script_path))
-	else
-		table.insert(cmd, vim.o.shell)
-		table.insert(cmd, string.format("%s 2>&1", script_path))
-	end
+	-- ユーザーが指定したコマンド（例: "bash", "python", "pwsh" など）をそのままベースにする
+	local cmd = { specified_cmd, script_path }
+	-- ※ シェル系で -c が必要な場合はユーザーが指定するか、コマンド種別で軽く受ける形にする
 
 	vim.cmd("tabnew")
 	local bufnr = vim.api.nvim_get_current_buf()
-	vim.bo[bufnr].buftype = "nofile"
-	vim.bo[bufnr].bufhidden = "wipe"
-	vim.bo[bufnr].swapfile = false
+	-- （バッファの初期化やヘッダー出力は省略）
 
-	local title = string.format("[Flat Run] %s", target_sym.name)
-	local header = {
-		title,
-		string.rep("=", vim.fn.strdisplaywidth(title)),
-		string.format("$ %s", table.concat(cmd, " ")),
-		"",
-	}
-	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, header)
-	vim.notify(string.format("[Flat] '%s' の実行を開始しました", target_sym.name), vim.log.levels.INFO)
-
+	-- パスが通っていなければ vim.system がそのままエラーを返す
 	vim.system(cmd, {
 		text = true,
 		cwd = vim.fn.fnamemodify(current_file, ":h"),
@@ -176,13 +158,17 @@ local function exec_run(target_sym, body_lines, current_file)
 			end
 
 			local output_lines = {}
-			local raw_output = obj.stdout or ""
-			if raw_output ~= "" then
-				for _, l in ipairs(vim.split(raw_output, "\n", { plain = true })) do
-					table.insert(output_lines, l)
-				end
+			local raw_output = (obj.stdout or "") .. (obj.stderr or "")
+			if obj.code ~= 0 and raw_output == "" then
+				raw_output = string.format(
+					"[Flat] コマンドの実行に失敗しました（パスが見つからない等): %s",
+					specified_cmd
+				)
 			end
 
+			for _, l in ipairs(vim.split(raw_output, "\n", { plain = true })) do
+				table.insert(output_lines, l)
+			end
 			vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, output_lines)
 		end)
 	end)
@@ -201,8 +187,9 @@ local function dispatch_action(bufnr, action_line, target_sym, body_start, body_
 		return exec_copy(target_sym, body_lines)
 	elseif cmd_str == "list" then
 		return exec_list(bufnr, target_sym, body_start, body_end, current_file)
-	elseif cmd_str == "run" then
-		return exec_run(target_sym, body_lines, current_file)
+	elseif vim.startswith(cmd_str, "run(") and vim.endswith(cmd_str, ")") then
+		local specified_cmd = cmd_str:match("^run%((.-)%)$")
+		return exec_run(target_sym, body_lines, current_file, specified_cmd)
 	elseif vim.startswith(cmd_str, "load(") and vim.endswith(cmd_str, ")") then
 		local path_str = cmd_str:match("^load%((.-)%)$")
 		return exec_load(bufnr, target_sym, body_start, body_end, path_str, current_file)
