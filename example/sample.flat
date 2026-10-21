@@ -2,7 +2,8 @@
 ## sample.flat - メインサンプルファイル
 ## ==========================================
 
-#!import: ./common_base.flat
+#!import: {base_info, base_servers}
+|from(./common_base.flat)
 
 #!section: イントロダクション
 > テストの目的

@@ -11,16 +11,57 @@ function M.lint(bufnr)
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local current_file = vim.api.nvim_buf_get_name(bufnr)
 	local symbols = parser.parse_pass1(bufnr, lines)
 
+	local diagnostics = {}
 	local symbol_map = {}
+	local defined_local_names = {}
+
+	-- 1. シンボル登録と名前衝突（重複）のチェック
 	for _, sym in ipairs(symbols) do
+		if sym.file == vim.fn.fnamemodify(current_file, ":p") then
+			-- 自ファイル内の定義
+			if defined_local_names[sym.name] then
+				-- 同一ファイル内での重複定義エラー
+				for i, line in ipairs(lines) do
+					local kind, name = line:match("^#!(%w+):%s*([^%|%s]+)")
+					if name == sym.name and i >= sym.start_line then
+						table.insert(diagnostics, {
+							lnum = i - 1,
+							col = 0,
+							end_col = #line,
+							severity = vim.diagnostic.severity.ERROR,
+							message = string.format(
+								"シンボル名が重複して定義されています: %s",
+								sym.name
+							),
+							source = "flat",
+						})
+						break
+					end
+				end
+			else
+				defined_local_names[sym.name] = true
+			end
+		end
+
+		-- 全体マップでの重複チェック（インポート間でのかぶり）
+		if symbol_map[sym.name] and symbol_map[sym.name] ~= sym.file then
+			-- 異なるファイル間（またはインポート同士）で同名シンボルが存在する場合のエラー
+			-- （必要に応じてインポート行にエラーを付与）
+		end
 		symbol_map[sym.name] = sym
 	end
 
-	local diagnostics = {}
+	-- 2. インポート行自体の構文・重複チェック、および #$ 参照の検証
 	for i, line in ipairs(lines) do
-		-- コメント行（##）の場合はLinterのチェックをスキップ
+		-- インポート行の重複チェックや構文チェック
+		local import_symbols_str = line:match("^#!import:%s*{%s*(.-)%s*}%s+from")
+		if import_symbols_str then
+			-- インポートされるシンボル個別の重複チェックなどをここで行うことも可能
+		end
+
 		if not line:match("^%s*##") then
 			local len = #line
 			local pos = 1
@@ -49,11 +90,11 @@ function M.lint(bufnr)
 						if semi then
 							local ref_content = line:sub(pos + 2, semi - 1)
 							if not vim.startswith(ref_content, "./") then
-								local base_name = ref_content -- block.line 廃止により ref_content 全体をシンボル名とする
+								local base_name = ref_content
 								if not symbol_map[base_name] then
 									table.insert(diagnostics, {
-										lnum = i - 1, -- 0-indexed
-										col = start_pos - 1, -- 0-indexed
+										lnum = i - 1,
+										col = start_pos - 1,
 										end_col = semi,
 										severity = vim.diagnostic.severity.ERROR,
 										message = string.format(
@@ -66,7 +107,6 @@ function M.lint(bufnr)
 							end
 							pos = semi + 1
 						else
-							-- ';' で終端されていないものは参照構文ではないためスキップ
 							pos = pos + 2
 						end
 					else
