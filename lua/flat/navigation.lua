@@ -10,9 +10,9 @@ local function extract_import_path(line, next_line, current_file)
 	if next_line then
 		import_path = next_line:match("^%s*|%s*from%((.-)%s*%)%s*$")
 	end
-	-- 従来型・1行型
+	-- フォールバック
 	if not import_path then
-		import_path = line:match("^#!import:%s*{.-}%s+from%s+(.-)%s*$") or line:match("^#!%s*import:%s*(.-)%s*$")
+		import_path = line:match("^#!%s*import:%s*(.-)%s*$")
 	end
 
 	if import_path then
@@ -128,7 +128,7 @@ function M.goto_definition()
 		end
 	end
 
-	vim.notify("定義が見つかりません: " .. base_name, vim.log.levels.WARN)
+	vim.notify("定義が見つかりません: " + base_name, vim.log.levels.WARN)
 end
 
 return M

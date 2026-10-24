@@ -2,7 +2,7 @@
 ## sample.flat - メインサンプルファイル
 ## ==========================================
 
-#!import: {base_info, base_servers}
+#!import: base_info, base_servers
 |from(./common_base.flat)
 
 #!section: イントロダクション

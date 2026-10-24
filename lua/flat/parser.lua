@@ -35,9 +35,9 @@ local function get_all_symbols_from_file(filepath, visited)
 	while i <= #lines do
 		local line = lines[i]
 
-		-- 1. 新インポート構文: #!import: { ... } の次に |from(path) が来る形式
-		local import_symbols_str = line:match("^#!import:%s*{%s*(.-)%s*}%s*$")
-		if import_symbols_str and i < #lines then
+		-- 新インポート構文: #!import: sym1, sym2 の次に |from(path) が来る形式
+		local import_symbols_str = line:match("^#!import:%s*(.-)%s*$")
+		if import_symbols_str and import_symbols_str ~= "" and i < #lines then
 			local next_line = lines[i + 1]
 			local import_path = next_line:match("^%s*|%s*from%((.-)%s*%)%s*$")
 			if import_path then
@@ -53,32 +53,6 @@ local function get_all_symbols_from_file(filepath, visited)
 						table.insert(symbols, sym)
 					end
 				end
-			end
-		end
-
-		-- 2. 従来型・1行型インポートの互換性維持
-		local inline_symbols, inline_path = line:match("^#!import:%s*{%s*(.-)%s*}%s+from%s+(.-)%s*$")
-		local simple_import_path = not inline_path and line:match("^#!import:%s*(.-)%s*$") or nil
-
-		if inline_path then
-			inline_path = vim.trim(inline_path)
-			local target_path = vim.fn.fnamemodify(current_dir .. "/" .. inline_path, ":p")
-			local sub_symbols = get_all_symbols_from_file(target_path, visited)
-			local allowed = {}
-			for s in inline_symbols:gmatch("[^,%s]+") do
-				allowed[s] = true
-			end
-			for _, sym in ipairs(sub_symbols) do
-				if allowed[sym.name] then
-					table.insert(symbols, sym)
-				end
-			end
-		elseif simple_import_path and not vim.startswith(simple_import_path, "{") then
-			simple_import_path = vim.trim(simple_import_path)
-			local target_path = vim.fn.fnamemodify(current_dir .. "/" .. simple_import_path, ":p")
-			local sub_symbols = get_all_symbols_from_file(target_path, visited)
-			for _, sym in ipairs(sub_symbols) do
-				table.insert(symbols, sym)
 			end
 		end
 
@@ -128,8 +102,8 @@ function M.parse_pass1(bufnr, lines, current_file_path, visited)
 		local line = lines[i]
 
 		-- 新インポート構文のパース
-		local import_symbols_str = line:match("^#!import:%s*{%s*(.-)%s*}%s*$")
-		if import_symbols_str and i < #lines then
+		local import_symbols_str = line:match("^#!import:%s*(.-)%s*$")
+		if import_symbols_str and import_symbols_str ~= "" and i < #lines then
 			local next_line = lines[i + 1]
 			local import_path = next_line:match("^%s*|%s*from%((.-)%s*%)%s*$")
 			if import_path then
@@ -146,32 +120,6 @@ function M.parse_pass1(bufnr, lines, current_file_path, visited)
 						table.insert(symbols, sym)
 					end
 				end
-			end
-		end
-
-		-- 従来型・1行型のフォールバック
-		local inline_symbols, inline_path = line:match("^#!import:%s*{%s*(.-)%s*}%s+from%s+(.-)%s*$")
-		local simple_import_path = not inline_path and line:match("^#!import:%s*(.-)%s*$") or nil
-
-		if inline_path then
-			inline_path = vim.trim(inline_path)
-			local target_path = vim.fn.fnamemodify(current_dir .. "/" .. inline_path, ":p")
-			local sub_symbols = get_all_symbols_from_file(target_path, {})
-			local allowed = {}
-			for s in inline_symbols:gmatch("[^,%s]+") do
-				allowed[s] = true
-			end
-			for _, sym in ipairs(sub_symbols) do
-				if allowed[sym.name] then
-					table.insert(symbols, sym)
-				end
-			end
-		elseif simple_import_path and not vim.startswith(simple_import_path, "{") then
-			simple_import_path = vim.trim(simple_import_path)
-			local target_path = vim.fn.fnamemodify(current_dir .. "/" .. simple_import_path, ":p")
-			local sub_symbols = get_all_symbols_from_file(target_path, {})
-			for _, sym in ipairs(sub_symbols) do
-				table.insert(symbols, sym)
 			end
 		end
 

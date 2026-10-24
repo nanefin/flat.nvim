@@ -52,7 +52,8 @@ function M.complete(findstart, base)
 	if findstart == 1 then
 		for i = col + 1, 1, -1 do
 			local char = line:sub(i, i)
-			if char == "#" or char == "|" or char == "{" or char:match("%s") then
+			-- 波括弧の検出を除外
+			if char == "#" or char == "|" or char:match("%s") then
 				if char:match("%s") then
 					return i
 				end
@@ -66,15 +67,15 @@ function M.complete(findstart, base)
 		local current_file = vim.api.nvim_buf_get_name(bufnr)
 		local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-		-- 文脈判定: #!import が行に含まれている、またはブレース内であるか
-		local is_import_context = line:match("^#!import") or line:find("{")
+		-- 文脈判定: #!import が行に含まれているか
+		local is_import_context = line:match("^#!import") ~= nil
 
 		-- 1. #!import の中でインポート可能な外部シンボル候補を提案
 		if is_import_context then
 			local ext_symbols = get_external_flat_symbols(current_file)
 			for _, sym in ipairs(ext_symbols) do
 				local candidate = sym.name
-				if base == "" or vim.startswith(candidate, base) or base:match("{") or base:match(",") then
+				if base == "" or vim.startswith(candidate, base) or base:match(",") then
 					table.insert(items, {
 						word = candidate,
 						abbr = candidate,
@@ -90,7 +91,7 @@ function M.complete(findstart, base)
 			local directives = {
 				{ word = "#!section: ", abbr = "#!section:", menu = "[Directive]", kind = "D" },
 				{ word = "#!block: ", abbr = "#!block:", menu = "[Directive]", kind = "D" },
-				{ word = "#!import: {  }", abbr = "#!import: { ... }", menu = "[Directive]", kind = "D" },
+				{ word = "#!import: ", abbr = "#!import: symbol", menu = "[Directive]", kind = "D" },
 			}
 			for _, d in ipairs(directives) do
 				if base == "" or vim.startswith(d.word, base) or vim.startswith(base, "#") then

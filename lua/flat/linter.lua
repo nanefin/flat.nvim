@@ -21,9 +21,7 @@ function M.lint(bufnr)
 	-- 1. シンボル登録と名前衝突（重複）のチェック
 	for _, sym in ipairs(symbols) do
 		if sym.file == vim.fn.fnamemodify(current_file, ":p") then
-			-- 自ファイル内の定義
 			if defined_local_names[sym.name] then
-				-- 同一ファイル内での重複定義エラー
 				for i, line in ipairs(lines) do
 					local kind, name = line:match("^#!(%w+):%s*([^%|%s]+)")
 					if name == sym.name and i >= sym.start_line then
@@ -45,23 +43,11 @@ function M.lint(bufnr)
 				defined_local_names[sym.name] = true
 			end
 		end
-
-		-- 全体マップでの重複チェック（インポート間でのかぶり）
-		if symbol_map[sym.name] and symbol_map[sym.name] ~= sym.file then
-			-- 異なるファイル間（またはインポート同士）で同名シンボルが存在する場合のエラー
-			-- （必要に応じてインポート行にエラーを付与）
-		end
 		symbol_map[sym.name] = sym
 	end
 
-	-- 2. インポート行自体の構文・重複チェック、および #$ 参照の検証
+	-- 2. #$ 参照の検証
 	for i, line in ipairs(lines) do
-		-- インポート行の重複チェックや構文チェック
-		local import_symbols_str = line:match("^#!import:%s*{%s*(.-)%s*}%s+from")
-		if import_symbols_str then
-			-- インポートされるシンボル個別の重複チェックなどをここで行うことも可能
-		end
-
 		if not line:match("^%s*##") then
 			local len = #line
 			local pos = 1
